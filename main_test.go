@@ -244,24 +244,24 @@ func TestGetAllDetails(t *testing.T) {
 
 func TestGenerateReport(t *testing.T) {
 	assertions := assert.New(t)
-	tmplData := &templateData{
+	tmplData := &TemplateData{
 		TestResultGroupIndicatorWidth:  "20px",
 		TestResultGroupIndicatorHeight: "16px",
 		ReportTitle:                    "test-title",
 		numOfTestsPerGroup:             2,
 		OutputFilename:                 "test-output-report.html",
 	}
-	allTests := map[string]*testStatus{}
-	allTests["TestFunc1"] = &testStatus{
+	allTests := map[string]*TestStatus{}
+	allTests["TestFunc1"] = &TestStatus{
 		TestName:           "TestFunc1",
 		Package:            "go-test-report",
 		ElapsedTime:        0,
 		Output:             nil,
 		Passed:             true,
 		TestFileName:       "",
-		TestFunctionDetail: testFunctionFilePos{},
+		TestFunctionDetail: TestFunctionFilePos{},
 	}
-	allTests["TestFunc2"] = &testStatus{
+	allTests["TestFunc2"] = &TestStatus{
 		TestName:     "TestFunc2",
 		Package:      "package2",
 		ElapsedTime:  0,
@@ -269,18 +269,18 @@ func TestGenerateReport(t *testing.T) {
 		Passed:       true,
 		TestFileName: "",
 
-		TestFunctionDetail: testFunctionFilePos{},
+		TestFunctionDetail: TestFunctionFilePos{},
 	}
-	allTests["TestFunc3"] = &testStatus{
+	allTests["TestFunc3"] = &TestStatus{
 		TestName:           "TestFunc3",
 		Package:            "go-test-report",
 		ElapsedTime:        0,
 		Output:             nil,
 		Passed:             false,
 		TestFileName:       "",
-		TestFunctionDetail: testFunctionFilePos{},
+		TestFunctionDetail: TestFunctionFilePos{},
 	}
-	allTests["TestFunc4"] = &testStatus{
+	allTests["TestFunc4"] = &TestStatus{
 		TestName:           "TestFunc4",
 		Package:            "go-test-report",
 		ElapsedTime:        0,
@@ -288,34 +288,34 @@ func TestGenerateReport(t *testing.T) {
 		Passed:             false,
 		Skipped:            true,
 		TestFileName:       "",
-		TestFunctionDetail: testFunctionFilePos{},
+		TestFunctionDetail: TestFunctionFilePos{},
 	}
-	testFileDetailsByPackage := testFileDetailsByPackage{}
-	testFileDetailsByPackage["go-test-report"] = map[string]*testFileDetail{}
-	testFileDetailsByPackage["go-test-report"]["TestFunc1"] = &testFileDetail{
+	testFileDetailsByPackage := TestFileDetailsByPackage{}
+	testFileDetailsByPackage["go-test-report"] = map[string]*TestFileDetail{}
+	testFileDetailsByPackage["go-test-report"]["TestFunc1"] = &TestFileDetail{
 		FileName: "sample_file_1.go",
-		TestFunctionFilePos: testFunctionFilePos{
+		TestFunctionFilePos: TestFunctionFilePos{
 			Line: 101,
 			Col:  1,
 		},
 	}
-	testFileDetailsByPackage["package2"] = map[string]*testFileDetail{}
-	testFileDetailsByPackage["package2"]["TestFunc2"] = &testFileDetail{
+	testFileDetailsByPackage["package2"] = map[string]*TestFileDetail{}
+	testFileDetailsByPackage["package2"]["TestFunc2"] = &TestFileDetail{
 		FileName: "sample_file_2.go",
-		TestFunctionFilePos: testFunctionFilePos{
+		TestFunctionFilePos: TestFunctionFilePos{
 			Line: 784,
 			Col:  17,
 		},
 	}
-	testFileDetailsByPackage["go-test-report"]["TestFunc3"] = &testFileDetail{
-		TestFunctionFilePos: testFunctionFilePos{
+	testFileDetailsByPackage["go-test-report"]["TestFunc3"] = &TestFileDetail{
+		TestFunctionFilePos: TestFunctionFilePos{
 			Line: 0,
 			Col:  0,
 		},
 	}
 	elapsedTestTime := 3 * time.Second
 	writer := bufio.NewWriter(&bytes.Buffer{})
-	err := generateReport(tmplData, allTests, testFileDetailsByPackage, elapsedTestTime, writer)
+	err := GenerateReport(tmplData, allTests, testFileDetailsByPackage, elapsedTestTime, writer)
 	assertions.Nil(err)
 	assertions.Equal(2, tmplData.NumOfTestPassed)
 	assertions.Equal(1, tmplData.NumOfTestFailed)
@@ -368,7 +368,7 @@ func TestSameTestName(t *testing.T) {
 
 func TestParseSizeFlagIfValueIsNotInteger(t *testing.T) {
 	assertions := assert.New(t)
-	tmplData := &templateData{}
+	tmplData := &TemplateData{}
 	flags := &cmdFlags{
 		sizeFlag: "x",
 	}
@@ -380,7 +380,7 @@ func TestParseSizeFlagIfValueIsNotInteger(t *testing.T) {
 
 func TestParseSizeFlagIfWidthValueIsNotInteger(t *testing.T) {
 	assertions := assert.New(t)
-	tmplData := &templateData{}
+	tmplData := &TemplateData{}
 	flags := &cmdFlags{
 		sizeFlag: "Bx27",
 	}
@@ -391,7 +391,7 @@ func TestParseSizeFlagIfWidthValueIsNotInteger(t *testing.T) {
 
 func TestParseSizeFlagIfHeightValueIsNotInteger(t *testing.T) {
 	assertions := assert.New(t)
-	tmplData := &templateData{}
+	tmplData := &TemplateData{}
 	flags := &cmdFlags{
 		sizeFlag: "10xA",
 	}
@@ -402,7 +402,7 @@ func TestParseSizeFlagIfHeightValueIsNotInteger(t *testing.T) {
 
 func TestParseSizeFlagIfMalformedSize(t *testing.T) {
 	assertions := assert.New(t)
-	tmplData := &templateData{}
+	tmplData := &TemplateData{}
 	flags := &cmdFlags{
 		sizeFlag: "10xx19",
 	}

@@ -34,7 +34,7 @@ type (
 		Output   string
 	}
 
-	testStatus struct {
+	TestStatus struct {
 		TestName           string
 		Package            string
 		ElapsedTime        float64
@@ -42,13 +42,13 @@ type (
 		Passed             bool
 		Skipped            bool
 		TestFileName       string
-		TestFunctionDetail testFunctionFilePos
+		TestFunctionDetail TestFunctionFilePos
 	}
 
-	templateData struct {
+	TemplateData struct {
 		TestResultGroupIndicatorWidth  string
 		TestResultGroupIndicatorHeight string
-		TestResults                    []*testGroupData
+		TestResults                    []*TestGroupData
 		NumOfTestPassed                int
 		NumOfTestFailed                int
 		NumOfTestSkipped               int
@@ -61,10 +61,10 @@ type (
 		TestExecutionDate              string
 	}
 
-	testGroupData struct {
+	TestGroupData struct {
 		FailureIndicator string
 		SkippedIndicator string
-		TestResults      []*testStatus
+		TestResults      []*TestStatus
 	}
 
 	cmdFlags struct {
@@ -91,18 +91,18 @@ type (
 		Module      goListJSONModule
 	}
 
-	testFunctionFilePos struct {
+	TestFunctionFilePos struct {
 		Line int
 		Col  int
 	}
 
-	testFileDetail struct {
+	TestFileDetail struct {
 		FileName            string
-		TestFunctionFilePos testFunctionFilePos
+		TestFunctionFilePos TestFunctionFilePos
 	}
 
-	testFileDetailsByTest    map[string]*testFileDetail
-	testFileDetailsByPackage map[string]testFileDetailsByTest
+	TestFileDetailsByTest    map[string]*TestFileDetail
+	TestFileDetailsByPackage map[string]TestFileDetailsByTest
 )
 
 func main() {
@@ -112,9 +112,9 @@ func main() {
 	}
 }
 
-func initRootCommand() (*cobra.Command, *templateData, *cmdFlags) {
+func initRootCommand() (*cobra.Command, *TemplateData, *cmdFlags) {
 	flags := &cmdFlags{}
-	tmplData := &templateData{}
+	tmplData := &TemplateData{}
 	rootCmd := &cobra.Command{
 		Use:  "go-test-report",
 		Long: "Captures go test output via stdin and parses it into a single self-contained html file.",
@@ -149,7 +149,7 @@ func initRootCommand() (*cobra.Command, *templateData, *cmdFlags) {
 			}
 			elapsedTestTime := time.Since(startTestTime)
 			// used to the location of test functions in test go files by package and test function name.
-			var testFileDetailByPackage testFileDetailsByPackage
+			var testFileDetailByPackage TestFileDetailsByPackage
 			if flags.listFlag != "" {
 				testFileDetailByPackage, err = getAllDetails(flags.listFlag)
 			} else {
@@ -158,7 +158,7 @@ func initRootCommand() (*cobra.Command, *templateData, *cmdFlags) {
 			if err != nil {
 				return err
 			}
-			err = generateReport(tmplData, allTests, testFileDetailByPackage, elapsedTestTime, reportFileWriter)
+			err = GenerateReport(tmplData, allTests, testFileDetailByPackage, elapsedTestTime, reportFileWriter)
 			elapsedTime := time.Since(startTime)
 			elapsedTimeMsg := []byte(fmt.Sprintf("[go-test-report] finished in %s\n", elapsedTime))
 			if _, err := cmd.OutOrStdout().Write(elapsedTimeMsg); err != nil {
@@ -213,8 +213,8 @@ func initRootCommand() (*cobra.Command, *templateData, *cmdFlags) {
 	return rootCmd, tmplData, flags
 }
 
-func readTestDataFromStdIn(stdinScanner *bufio.Scanner, flags *cmdFlags, cmd *cobra.Command) (allPackageNames map[string]*types.Nil, allTests map[string]*testStatus, e error) {
-	allTests = map[string]*testStatus{}
+func readTestDataFromStdIn(stdinScanner *bufio.Scanner, flags *cmdFlags, cmd *cobra.Command) (allPackageNames map[string]*types.Nil, allTests map[string]*TestStatus, e error) {
+	allTests = map[string]*TestStatus{}
 	allPackageNames = map[string]*types.Nil{}
 
 	// read from stdin and parse "go test" results
@@ -231,10 +231,10 @@ func readTestDataFromStdIn(stdinScanner *bufio.Scanner, flags *cmdFlags, cmd *co
 			return nil, nil, err
 		}
 		if goTestOutputRow.TestName != "" {
-			var status *testStatus
+			var status *TestStatus
 			key := goTestOutputRow.Package + "." + goTestOutputRow.TestName
 			if _, exists := allTests[key]; !exists {
-				status = &testStatus{
+				status = &TestStatus{
 					TestName: goTestOutputRow.TestName,
 					Package:  goTestOutputRow.Package,
 					Output:   []string{},
@@ -262,8 +262,8 @@ func readTestDataFromStdIn(stdinScanner *bufio.Scanner, flags *cmdFlags, cmd *co
 	return allPackageNames, allTests, nil
 }
 
-func getAllDetails(listFile string) (testFileDetailsByPackage, error) {
-	testFileDetailByPackage := testFileDetailsByPackage{}
+func getAllDetails(listFile string) (TestFileDetailsByPackage, error) {
+	testFileDetailByPackage := TestFileDetailsByPackage{}
 	f, err := os.Open(listFile)
 	defer f.Close()
 	if err != nil {
@@ -285,11 +285,11 @@ func getAllDetails(listFile string) (testFileDetailsByPackage, error) {
 	return testFileDetailByPackage, nil
 }
 
-func getPackageDetails(allPackageNames map[string]*types.Nil) (testFileDetailsByPackage, error) {
-	var testFileDetailByPackage testFileDetailsByPackage
+func getPackageDetails(allPackageNames map[string]*types.Nil) (TestFileDetailsByPackage, error) {
+	var testFileDetailByPackage TestFileDetailsByPackage
 	ctx := context.Background()
 	g, ctx := errgroup.WithContext(ctx)
-	details := make(chan testFileDetailsByPackage)
+	details := make(chan TestFileDetailsByPackage)
 	for packageName := range allPackageNames {
 		name := packageName
 		g.Go(func() error {
@@ -298,7 +298,7 @@ func getPackageDetails(allPackageNames map[string]*types.Nil) (testFileDetailsBy
 				return err
 			}
 			select {
-			case details <- testFileDetailsByPackage{name: testFileDetailsByTest}:
+			case details <- TestFileDetailsByPackage{name: testFileDetailsByTest}:
 			case <-ctx.Done():
 				return ctx.Err()
 			}
@@ -311,7 +311,7 @@ func getPackageDetails(allPackageNames map[string]*types.Nil) (testFileDetailsBy
 		close(details)
 	}()
 
-	testFileDetailByPackage = make(testFileDetailsByPackage, len(allPackageNames))
+	testFileDetailByPackage = make(TestFileDetailsByPackage, len(allPackageNames))
 	for d := range details {
 		for packageName, testFileDetailsByTest := range d {
 			testFileDetailByPackage[packageName] = testFileDetailsByTest
@@ -323,7 +323,7 @@ func getPackageDetails(allPackageNames map[string]*types.Nil) (testFileDetailsBy
 	return testFileDetailByPackage, nil
 }
 
-func getTestDetails(packageName string) (testFileDetailsByTest, error) {
+func getTestDetails(packageName string) (TestFileDetailsByTest, error) {
 	var out bytes.Buffer
 	var cmd *exec.Cmd
 	stringReader := strings.NewReader("")
@@ -341,8 +341,8 @@ func getTestDetails(packageName string) (testFileDetailsByTest, error) {
 	return getFileDetails(goListJSON)
 }
 
-func getFileDetails(goListJSON *goListJSON) (testFileDetailsByTest, error) {
-	testFileDetailByTest := map[string]*testFileDetail{}
+func getFileDetails(goListJSON *goListJSON) (TestFileDetailsByTest, error) {
+	testFileDetailByTest := map[string]*TestFileDetail{}
 	for _, file := range goListJSON.TestGoFiles {
 		sourceFilePath := fmt.Sprintf("%s/%s", goListJSON.Dir, file)
 		fileSet := token.NewFileSet()
@@ -353,7 +353,7 @@ func getFileDetails(goListJSON *goListJSON) (testFileDetailsByTest, error) {
 		ast.Inspect(f, func(n ast.Node) bool {
 			switch x := n.(type) {
 			case *ast.FuncDecl:
-				testFileDetail := &testFileDetail{}
+				testFileDetail := &TestFileDetail{}
 				fileSetPos := fileSet.Position(n.Pos())
 				folders := strings.Split(fileSetPos.String(), "/")
 				fileNameWithPos := folders[len(folders)-1]
@@ -361,7 +361,7 @@ func getFileDetails(goListJSON *goListJSON) (testFileDetailsByTest, error) {
 				lineNum, _ := strconv.Atoi(fileDetails[1])
 				colNum, _ := strconv.Atoi(fileDetails[2])
 				testFileDetail.FileName = fileDetails[0]
-				testFileDetail.TestFunctionFilePos = testFunctionFilePos{
+				testFileDetail.TestFunctionFilePos = TestFunctionFilePos{
 					Line: lineNum,
 					Col:  colNum,
 				}
@@ -389,7 +389,7 @@ func (t byName) Less(i, j int) bool {
 	return t[i].name < t[j].name
 }
 
-func generateReport(tmplData *templateData, allTests map[string]*testStatus, testFileDetailByPackage testFileDetailsByPackage, elapsedTestTime time.Duration, reportFileWriter *bufio.Writer) error {
+func GenerateReport(tmplData *TemplateData, allTests map[string]*TestStatus, testFileDetailByPackage TestFileDetailsByPackage, elapsedTestTime time.Duration, reportFileWriter *bufio.Writer) error {
 	// read the html template from the generated embedded asset go file
 	tpl := template.New("test_report.html.template")
 	testReportHTMLTemplateStr, err := hex.DecodeString(testReportHTMLTemplate)
@@ -422,7 +422,7 @@ func generateReport(tmplData *templateData, allTests map[string]*testStatus, tes
 	for _, test := range tests {
 		status := allTests[test.key]
 		if len(tmplData.TestResults) == tgID {
-			tmplData.TestResults = append(tmplData.TestResults, &testGroupData{})
+			tmplData.TestResults = append(tmplData.TestResults, &TestGroupData{})
 		}
 		// add file info(name and position; line and col) associated with the test function
 		testFileInfo := testFileDetailByPackage[status.Package][status.TestName]
@@ -459,7 +459,7 @@ func generateReport(tmplData *templateData, allTests map[string]*testStatus, tes
 	return nil
 }
 
-func parseSizeFlag(tmplData *templateData, flags *cmdFlags) error {
+func parseSizeFlag(tmplData *TemplateData, flags *cmdFlags) error {
 	flags.sizeFlag = strings.ToLower(flags.sizeFlag)
 	if !strings.Contains(flags.sizeFlag, "x") {
 		val, err := strconv.Atoi(flags.sizeFlag)
