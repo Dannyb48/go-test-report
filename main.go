@@ -56,7 +56,7 @@ type (
 		TestDuration                   time.Duration
 		ReportTitle                    string
 		JsCode                         template.JS
-		numOfTestsPerGroup             int
+		NumOfTestsPerGroup             int
 		OutputFilename                 string
 		TestExecutionDate              string
 	}
@@ -123,7 +123,7 @@ func initRootCommand() (*cobra.Command, *TemplateData, *cmdFlags) {
 			if err := parseSizeFlag(tmplData, flags); err != nil {
 				return err
 			}
-			tmplData.numOfTestsPerGroup = flags.groupSize
+			tmplData.NumOfTestsPerGroup = flags.groupSize
 			tmplData.ReportTitle = flags.titleFlag
 			tmplData.OutputFilename = flags.outputFlag
 			if err := checkIfStdinIsPiped(); err != nil {
@@ -443,7 +443,7 @@ func GenerateReport(tmplData *TemplateData, allTests map[string]*TestStatus, tes
 			tmplData.NumOfTestPassed++
 		}
 		tgCounter++
-		if tgCounter == tmplData.numOfTestsPerGroup {
+		if tgCounter == tmplData.NumOfTestsPerGroup {
 			tgCounter = 0
 			tgID++
 		}

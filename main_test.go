@@ -105,7 +105,7 @@ func TestGroupSizeFlag(t *testing.T) {
 	assertions.Error(rootCmdErr)
 	output, readErr := ioutil.ReadAll(buffer)
 	assertions.Nil(readErr)
-	assertions.Equal(32, tmplData.numOfTestsPerGroup)
+	assertions.Equal(32, tmplData.NumOfTestsPerGroup)
 	assertions.NotEmpty(output)
 }
 
@@ -248,7 +248,7 @@ func TestGenerateReport(t *testing.T) {
 		TestResultGroupIndicatorWidth:  "20px",
 		TestResultGroupIndicatorHeight: "16px",
 		ReportTitle:                    "test-title",
-		numOfTestsPerGroup:             2,
+		NumOfTestsPerGroup:             2,
 		OutputFilename:                 "test-output-report.html",
 	}
 	allTests := map[string]*TestStatus{}
