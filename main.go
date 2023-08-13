@@ -15,11 +15,13 @@ import (
 	"html/template"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	gtypes "github.com/onsi/ginkgo/v2/types"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 )
@@ -73,6 +75,7 @@ type (
 		groupSize  int
 		listFlag   string
 		outputFlag string
+		ginkgoFile string
 		verbose    bool
 	}
 
@@ -120,6 +123,7 @@ func initRootCommand() (*cobra.Command, *TemplateData, *cmdFlags) {
 		Long: "Captures go test output via stdin and parses it into a single self-contained html file.",
 		RunE: func(cmd *cobra.Command, args []string) (e error) {
 			startTime := time.Now()
+			var err error
 			if err := parseSizeFlag(tmplData, flags); err != nil {
 				return err
 			}
@@ -128,6 +132,46 @@ func initRootCommand() (*cobra.Command, *TemplateData, *cmdFlags) {
 			tmplData.OutputFilename = flags.outputFlag
 			if err := checkIfStdinIsPiped(); err != nil {
 				return err
+			}
+			//initial ginkgo support
+			if flags.ginkgoFile != "" {
+
+				absPath, _ := filepath.Abs(flags.ginkgoFile)
+				data, _ := os.ReadFile(absPath)
+
+				var ginkgoReports []gtypes.Report
+
+				json.Unmarshal(data, &ginkgoReports)
+
+				testReportHTMLTemplateFile, _ := os.Create(tmplData.OutputFilename)
+				reportFileWriter := bufio.NewWriter(testReportHTMLTemplateFile)
+				defer func() {
+					if err := reportFileWriter.Flush(); err != nil {
+						e = err
+					}
+					if err := testReportHTMLTemplateFile.Close(); err != nil {
+						e = err
+					}
+				}()
+				startTestTime := time.Now()
+				allTests := map[string]*TestStatus{}
+				var testFileDetailByPackage TestFileDetailsByPackage
+				for _, report := range ginkgoReports {
+					for _, spec := range report.SpecReports {
+
+						allTests[spec.FullText()] = buildTestStatusFromSpecReport(spec, report)
+						testFileDetailByPackage[report.SuiteDescription][spec.FullText()] = buildTestFileDetailsFromSpecReport(spec)
+					}
+				}
+				elapsedTestTime := time.Since(startTestTime)
+				err = GenerateReport(tmplData, allTests, testFileDetailByPackage, elapsedTestTime, reportFileWriter)
+				elapsedTime := time.Since(startTime)
+				elapsedTimeMsg := []byte(fmt.Sprintf("[go-test-report] finished in %s\n", elapsedTime))
+				if _, err := cmd.OutOrStdout().Write(elapsedTimeMsg); err != nil {
+					return err
+				}
+				return nil
+
 			}
 			stdin := os.Stdin
 			stdinScanner := bufio.NewScanner(stdin)
@@ -209,6 +253,11 @@ func initRootCommand() (*cobra.Command, *TemplateData, *cmdFlags) {
 		"v",
 		false,
 		"while processing, show the complete output from go test ")
+	rootCmd.PersistentFlags().StringVarP(&flags.ginkgoFile,
+		"ginkoFile",
+		"f",
+		"results.json",
+		"Parse a Ginkgo Test JSON Report ")
 
 	return rootCmd, tmplData, flags
 }
@@ -496,4 +545,69 @@ func checkIfStdinIsPiped() error {
 		return nil
 	}
 	return errors.New("ERROR: missing ≪ stdin ≫ pipe")
+}
+
+func GenerateHtmlReport(report gtypes.Report) error {
+	tmplData := &TemplateData{ReportTitle: "Ginkgo-HTML-Report",
+		TestResultGroupIndicatorWidth:  "24",
+		TestResultGroupIndicatorHeight: "24",
+		OutputFilename:                 "ginkgo-report.html"}
+
+	tmplData.NumOfTestsPerGroup = 20
+
+	testReportHTMLTemplateFile, _ := os.Create(tmplData.OutputFilename)
+	reportFileWriter := bufio.NewWriter(testReportHTMLTemplateFile)
+	defer func() {
+
+		if err := reportFileWriter.Flush(); err != nil {
+			return
+		}
+		if err := testReportHTMLTemplateFile.Close(); err != nil {
+			return
+		}
+	}()
+
+	allTests := map[string]*TestStatus{}
+	var testFileDetailByPackage TestFileDetailsByPackage
+
+	for _, spec := range report.SpecReports {
+
+		allTests[spec.FullText()] = buildTestStatusFromSpecReport(spec, report)
+		testFileDetailByPackage[report.SuiteDescription][spec.FullText()] = buildTestFileDetailsFromSpecReport(spec)
+	}
+
+	return GenerateReport(tmplData, allTests, testFileDetailByPackage, report.RunTime, reportFileWriter)
+
+}
+
+func buildTestStatusFromSpecReport(spec gtypes.SpecReport, report gtypes.Report) *TestStatus {
+
+	status := &TestStatus{
+		TestName:           spec.FullText(),
+		Package:            report.SuiteDescription,
+		ElapsedTime:        float64(spec.RunTime),
+		Output:             []string{spec.CombinedOutput()},
+		Passed:             true,
+		Skipped:            false,
+		TestFileName:       "",
+		TestFunctionDetail: TestFunctionFilePos{},
+	}
+
+	if spec.Failed() {
+		status.Passed = false
+	}
+
+	if spec.State.Is(gtypes.SpecStateSkipped) || spec.State.Is(gtypes.SpecStatePending) {
+		status.Skipped = true
+	}
+
+	return status
+
+}
+
+func buildTestFileDetailsFromSpecReport(spec gtypes.SpecReport) *TestFileDetail {
+	return &TestFileDetail{
+		FileName:            spec.FileName(),
+		TestFunctionFilePos: TestFunctionFilePos{Line: spec.LineNumber(), Col: 0},
+	}
 }
